@@ -80,10 +80,10 @@ db.x("DELETE FROM calendars WHERE id=?", (cal_id,))
 
 # Local events, including a deliberate double-booking for the conflict detector.
 d = lambda n, t: f"{(monday + timedelta(days=n)).isoformat()}T{t}"
-db.add_event(f"{dad} dentist", d(2, "08:30"), d(2, "09:30"), member_id=M[dad])
-db.add_event("Date night 🍝", d(4, "19:00"), d(4, "21:30"), member_id=M[mom])
-db.add_event(f"{mom} work offsite", d(1, "09:00"), d(1, "15:00"), member_id=M[mom])
-db.add_event(f"{mom} parent-teacher conference", d(1, "14:00"), d(1, "14:30"), member_id=M[mom])
+db.add_event(f"{dad} dentist", d(2, "08:30"), d(2, "09:30"), member_ids=[M[dad]])
+db.add_event("Date night 🍝", d(4, "19:00"), d(4, "21:30"), member_ids=[M[dad], M[mom]])
+db.add_event(f"{mom} work offsite", d(1, "09:00"), d(1, "15:00"), member_ids=[M[mom]])
+db.add_event(f"{mom} parent-teacher conference", d(1, "14:00"), d(1, "14:30"), member_ids=[M[mom]])
 db.add_event("Grandma's birthday party", d(6, "13:00"), d(6, "16:00"))
 
 # Chores

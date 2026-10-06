@@ -65,9 +65,9 @@ class AI:
         system = (
             "Convert a family calendar request into JSON. Reply with JSON only, no prose. "
             'Schema: {"title": str, "start": "YYYY-MM-DDTHH:MM" or "YYYY-MM-DD", '
-            '"end": same format, "all_day": bool, "member_id": int or null, "location": str}. '
+            '"end": same format, "all_day": bool, "member_ids": [int], "location": str}. '
             "Default duration 1 hour. Resolve relative dates against the current date given. "
-            f"Family members: {names}. Pick member_id only if a name is clearly mentioned.")
+            f"Family members: {names}. List every member clearly mentioned in member_ids; empty list if none.")
         user = f"Now: {now.strftime('%A %Y-%m-%d %H:%M')}. Request: {text}"
         raw = self._ask(system, user, 300).strip()
         raw = raw[raw.find("{"): raw.rfind("}") + 1]

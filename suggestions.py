@@ -40,21 +40,28 @@ def _dt(s):
 
 
 def conflicts(db, today):
+    """Anyone booked into two overlapping events. Shared events count for each person on them."""
     out = []
+    seen = set()
     end = (today + timedelta(days=7)).isoformat()
-    evs = [e for e in db.events_between(today.isoformat(), end) if not e["all_day"] and e["member_id"]]
+    evs = [e for e in db.events_between(today.isoformat(), end) if not e["all_day"] and e["members"]]
     by_member = {}
     for e in evs:
-        by_member.setdefault(e["member_id"], []).append(e)
-    for mid, lst in by_member.items():
+        for m in e["members"]:
+            by_member.setdefault((m["id"], m["name"]), []).append(e)
+    for (mid, name), lst in by_member.items():
         lst.sort(key=lambda e: _dt(e["start"]))
         for a, b in zip(lst, lst[1:]):
             if _dt(b["start"]) < _dt(a["end"]):
+                key = f"conflict:{a['id']}:{b['id']}:{mid}"
+                if key in seen:
+                    continue
+                seen.add(key)
                 when = _dt(b["start"]).strftime("%a ") + _clock(_dt(b["start"]))
                 out.append({
-                    "key": f"conflict:{a['id']}:{b['id']}",
+                    "key": key,
                     "kind": "conflict", "icon": "⚠️", "priority": 0,
-                    "title": f"{a['member']} is double-booked {when}",
+                    "title": f"{name} is double-booked {when}",
                     "detail": f"“{a['title']}” overlaps “{b['title']}”.",
                 })
     return out

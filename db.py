@@ -32,6 +32,13 @@ CREATE TABLE IF NOT EXISTS events (
     source TEXT NOT NULL DEFAULT 'local'   -- 'local' or 'ics'
 );
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
+-- Who an event is for. An event can belong to several people (e.g. Mommy + Nathaniel).
+-- events.member_id is kept as the "first" person so older code keeps working.
+CREATE TABLE IF NOT EXISTS event_members (
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    PRIMARY KEY (event_id, member_id)
+);
 CREATE TABLE IF NOT EXISTS chores (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -117,11 +124,18 @@ class DB:
         self.x("UPDATE members SET name=?, color=?, emoji=? WHERE id=?", (name.strip(), color, emoji, member_id))
 
     def delete_member(self, member_id):
-        """Removes a person. Their events, chores and calendars stay, just unassigned."""
+        """Removes a person. Their events, chores and calendars stay, just unassigned
+        (or still assigned to the other people on a shared event)."""
         with self.lock:
             for table in ("events", "chores", "calendars"):
                 self.conn.execute(f"UPDATE {table} SET member_id=NULL WHERE member_id=?", (member_id,))
+            self.conn.execute("DELETE FROM event_members WHERE member_id=?", (member_id,))
             self.conn.execute("DELETE FROM members WHERE id=?", (member_id,))
+            # Shared events that lost their "first" person: promote the next one.
+            self.conn.execute("""UPDATE events SET member_id =
+                                   (SELECT member_id FROM event_members WHERE event_id = events.id LIMIT 1)
+                                 WHERE member_id IS NULL
+                                   AND id IN (SELECT event_id FROM event_members)""")
             self.conn.commit()
 
     # ---- meta (small saved flags) -------------------------------------
@@ -134,24 +148,72 @@ class DB:
 
     # ---- events --------------------------------------------------------
     def events_between(self, start, end):
-        """start/end are YYYY-MM-DD strings; end exclusive."""
-        return self.q(
+        """start/end are YYYY-MM-DD strings; end exclusive.
+        Each event comes back with `members` (list of {id, name, color}) and `member_ids`.
+        `member` is everyone's names joined ("Mommy & Nathaniel") and `color` the first color."""
+        events = self.q(
             """SELECT e.*, m.name AS member, m.color AS color
                FROM events e LEFT JOIN members m ON m.id = e.member_id
                WHERE e.start < ? AND e.end > ? ORDER BY e.all_day DESC, e.start""",
             (end, start))
+        if not events:
+            return events
+        ids = [e["id"] for e in events]
+        marks = ",".join("?" * len(ids))
+        people = {}
+        for r in self.q(f"""SELECT em.event_id, m.id, m.name, m.color
+                            FROM event_members em JOIN members m ON m.id = em.member_id
+                            WHERE em.event_id IN ({marks}) ORDER BY m.id""", ids):
+            people.setdefault(r["event_id"], []).append({"id": r["id"], "name": r["name"], "color": r["color"]})
+        for e in events:
+            ms = people.get(e["id"])
+            if not ms and e["member_id"]:  # synced events and older events: one person
+                ms = [{"id": e["member_id"], "name": e["member"], "color": e["color"]}]
+            ms = ms or []
+            e["members"] = ms
+            e["member_ids"] = [m["id"] for m in ms]
+            if ms:
+                e["member"] = " & ".join(m["name"] for m in ms) if len(ms) <= 2 else \
+                    ", ".join(m["name"] for m in ms[:-1]) + " & " + ms[-1]["name"]
+                e["color"] = ms[0]["color"]
+        return events
 
-    def add_event(self, title, start, end, all_day=False, member_id=None, location=""):
-        eid = self.x(
-            "INSERT INTO events(title,start,end,all_day,member_id,location,source) VALUES (?,?,?,?,?,?, 'local')",
-            (title, start, end, int(all_day), member_id, location))
-        self.log("event_added", title=title, start=start, member_id=member_id)
+    def _set_event_members(self, eid, member_ids):
+        """Must be called while holding self.lock."""
+        self.conn.execute("DELETE FROM event_members WHERE event_id=?", (eid,))
+        self.conn.executemany("INSERT OR IGNORE INTO event_members(event_id, member_id) VALUES (?,?)",
+                              [(eid, m) for m in member_ids])
+
+    @staticmethod
+    def _clean_ids(member_ids):
+        out = []
+        for m in member_ids or []:
+            if m is not None and int(m) not in out:
+                out.append(int(m))
+        return out
+
+    def add_event(self, title, start, end, all_day=False, member_ids=None, location=""):
+        ids = self._clean_ids(member_ids)
+        with self.lock:
+            cur = self.conn.execute(
+                "INSERT INTO events(title,start,end,all_day,member_id,location,source) VALUES (?,?,?,?,?,?, 'local')",
+                (title, start, end, int(all_day), ids[0] if ids else None, location))
+            eid = cur.lastrowid
+            self._set_event_members(eid, ids)
+            self.conn.commit()
+        self.log("event_added", title=title, start=start, member_ids=ids)
         return eid
 
-    def update_event(self, eid, title, start, end, all_day=False, member_id=None, location=""):
-        self.x("""UPDATE events SET title=?, start=?, end=?, all_day=?, member_id=?, location=?
-                  WHERE id=? AND source='local'""",
-               (title, start, end, int(all_day), member_id, location, eid))
+    def update_event(self, eid, title, start, end, all_day=False, member_ids=None, location=""):
+        ids = self._clean_ids(member_ids)
+        with self.lock:
+            cur = self.conn.execute(
+                """UPDATE events SET title=?, start=?, end=?, all_day=?, member_id=?, location=?
+                   WHERE id=? AND source='local'""",
+                (title, start, end, int(all_day), ids[0] if ids else None, location, eid))
+            if cur.rowcount:
+                self._set_event_members(eid, ids)
+            self.conn.commit()
 
     def delete_event(self, eid):
         self.x("DELETE FROM events WHERE id=? AND source='local'", (eid,))

@@ -67,8 +67,17 @@ function renderWeather() {
 }
 
 // ---------------------------------------------------------------- calendar
+// An event shows unless every person on it has been hidden with the face filter.
 function visibleEvents() {
-  return S.data.events.filter((e) => !e.member_id || !S.hidden.has(e.member_id));
+  return S.data.events.filter((e) => !e.member_ids.length || e.member_ids.some((id) => !S.hidden.has(id)));
+}
+
+// Color stripes for shared events: "#a 0 50%, #b 50% 100%" -> two equal bands.
+function bands(colors, dir) {
+  if (colors.length < 2) return "";
+  const step = 100 / colors.length;
+  const stops = colors.map((c, i) => `${c} ${(i * step).toFixed(2)}% ${((i + 1) * step).toFixed(2)}%`);
+  return `linear-gradient(${dir}, ${stops.join(", ")})`;
 }
 function eventsOn(day) {
   const d0 = ymd(day), d1 = ymd(addDays(day, 1));
@@ -77,7 +86,15 @@ function eventsOn(day) {
 function evButton(e, withTime = true) {
   const b = el("button", "ev" + (e.all_day ? " allday" : ""));
   b.style.setProperty("--c", e.color || NEUTRAL);
-  b.innerHTML = (e.all_day || !withTime ? "" : `<div class="t">${fmtTime(e.start)}</div>`) + `<div class="n">${esc(e.title)}</div>`;
+  const colors = e.members.map((m) => m.color);
+  if (colors.length > 1) {
+    b.style.setProperty("--bar", bands(colors, "to bottom"));
+    b.style.setProperty("--fill", `linear-gradient(90deg, ${colors.join(", ")})`);
+  }
+  // Shared events get a little dot per person so you can tell who at a glance.
+  const dots = e.members.length > 1
+    ? `<div class="dots">${e.members.map((m) => `<span style="background:${m.color}" title="${esc(m.name)}"></span>`).join("")}</div>` : "";
+  b.innerHTML = (e.all_day || !withTime ? "" : `<div class="t">${fmtTime(e.start)}</div>`) + `<div class="n">${esc(e.title)}</div>` + dots;
   b.onclick = () => showDetail(e);
   return b;
 }
@@ -246,14 +263,26 @@ function openAdd(day, ev = null) {
   } else {
     f.day.value = day || S.data.today;
   }
-  S.who = ev ? ev.member_id : null;
+  // Who it's for: any number of people. Nobody picked = Everyone.
+  S.who = new Set(ev ? ev.member_ids : []);
   const who = $("#whoPick"); who.innerHTML = "";
+  const paintWho = () => who.querySelectorAll("button").forEach((x) => {
+    const id = x.dataset.id ? Number(x.dataset.id) : null;
+    x.classList.toggle("on", id === null ? S.who.size === 0 : S.who.has(id));
+  });
   for (const m of [{ id: null, name: "Everyone", color: NEUTRAL }, ...S.data.members]) {
-    const b = el("button", m.id === S.who ? "on" : "", esc(m.name)); b.type = "button";
+    const b = el("button", "", esc(m.name)); b.type = "button";
+    if (m.id !== null) b.dataset.id = m.id;
     b.style.setProperty("--c", m.color);
-    b.onclick = () => { S.who = m.id; who.querySelectorAll("button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); };
+    b.onclick = () => {
+      if (m.id === null) S.who.clear();                       // Everyone: clear picks
+      else if (S.who.has(m.id)) S.who.delete(m.id);           // tap again to un-pick
+      else S.who.add(m.id);
+      paintWho();
+    };
     who.append(b);
   }
+  paintWho();
   // Quick-add only makes sense for new events.
   $("#quickWrap").classList.toggle("hidden", !S.data.features.ai || !!ev);
   $("#quick").value = "";
@@ -264,7 +293,7 @@ function close(sel) { $(sel).classList.add("hidden"); }
 $("#eventForm").onsubmit = async (ev) => {
   ev.preventDefault();
   const f = ev.target, allDay = f.all_day.checked || !f.start.value;
-  const body = { title: f.title.value, all_day: allDay, member_id: S.who };
+  const body = { title: f.title.value, all_day: allDay, member_ids: [...S.who] };
   if (allDay) { body.start = f.day.value; body.end = ymd(addDays(new Date(f.day.value + "T12:00"), 1)); }
   else {
     body.start = `${f.day.value}T${f.start.value}`;

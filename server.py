@@ -177,16 +177,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json({"ok": True})
 
         if res == "events":
-            if method == "POST" and rid:
-                b = self._body()
-                db.update_event(rid, b["title"], b["start"], b.get("end") or b["start"],
-                                b.get("all_day", False), b.get("member_id"), b.get("location", ""))
-                return self._json({"id": rid})
             if method == "POST":
                 b = self._body()
-                return self._json({"id": db.add_event(b["title"], b["start"], b.get("end") or b["start"],
-                                                      b.get("all_day", False), b.get("member_id"),
-                                                      b.get("location", ""))})
+                # member_ids: a list of people. (A single member_id still works too.)
+                ids = b.get("member_ids")
+                if ids is None:
+                    ids = [b["member_id"]] if b.get("member_id") else []
+                args = (b["title"], b["start"], b.get("end") or b["start"],
+                        b.get("all_day", False), ids, b.get("location", ""))
+                if rid:
+                    db.update_event(rid, *args)
+                    return self._json({"id": rid})
+                return self._json({"id": db.add_event(*args)})
             if method == "DELETE" and rid:
                 db.delete_event(rid)
                 return self._json({"ok": True})
@@ -221,8 +223,9 @@ class Handler(SimpleHTTPRequestHandler):
             if not ai.enabled:
                 return self._json({"error": "Add an Anthropic API key in config.json to use quick add."}, 400)
             ev = ai.quick_add(self._body()["text"], db.members())
+            ids = ev.get("member_ids") or ([ev["member_id"]] if ev.get("member_id") else [])
             ev["id"] = db.add_event(ev["title"], ev["start"], ev["end"], ev.get("all_day", False),
-                                    ev.get("member_id"), ev.get("location", ""))
+                                    ids, ev.get("location", ""))
             return self._json(ev)
 
         if res == "brief" and method == "GET":
