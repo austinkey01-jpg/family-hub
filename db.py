@@ -85,6 +85,10 @@ class DB:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        # Events that came from a calendar link which no longer exists (like the demo
+        # week) can't be re-synced, so they belong to the hub now and are editable.
+        self.conn.execute("UPDATE events SET source='local' WHERE source='ics' AND calendar_id IS NULL")
+        self.conn.commit()
         self.lock = threading.Lock()
 
     # ---- helpers -------------------------------------------------------
@@ -143,6 +147,11 @@ class DB:
             (title, start, end, int(all_day), member_id, location))
         self.log("event_added", title=title, start=start, member_id=member_id)
         return eid
+
+    def update_event(self, eid, title, start, end, all_day=False, member_id=None, location=""):
+        self.x("""UPDATE events SET title=?, start=?, end=?, all_day=?, member_id=?, location=?
+                  WHERE id=? AND source='local'""",
+               (title, start, end, int(all_day), member_id, location, eid))
 
     def delete_event(self, eid):
         self.x("DELETE FROM events WHERE id=? AND source='local'", (eid,))
