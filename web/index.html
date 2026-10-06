@@ -58,7 +58,7 @@
 <div id="sheet" class="sheet hidden">
   <div class="sheet-card">
     <div class="sheet-head">
-      <h3>Add to the calendar</h3>
+      <h3 id="sheetTitle">Add to the calendar</h3>
       <button class="x" data-close>✕</button>
     </div>
     <div id="quickWrap" class="quick hidden">
@@ -85,7 +85,11 @@
   <div class="sheet-card small">
     <div class="sheet-head"><h3 id="dTitle"></h3><button class="x" data-close>✕</button></div>
     <p id="dWhen"></p><p id="dWhere" class="muted"></p>
-    <button id="dDelete" class="danger hidden">Delete event</button>
+    <p id="dSynced" class="muted note hidden">This one comes from another calendar, so change it there and it will update here.</p>
+    <div id="dActions" class="detail-actions hidden">
+      <button id="dEdit" class="primary">Edit</button>
+      <button id="dDelete" class="ghost-danger">Delete</button>
+    </div>
   </div>
 </div>
 

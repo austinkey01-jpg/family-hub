@@ -182,3 +182,6 @@ form { display: flex; flex-direction: column; gap: .8rem; }
 .ghost-danger { color: #D64545; font-weight: 700; min-height: 52px; border-radius: 12px; }
 .ghost-danger.armed { background: #E5484D; color: #fff; }
 #famList { display: flex; flex-direction: column; gap: .9rem; }
+.detail-actions { display: flex; gap: .6rem; }
+.detail-actions button { flex: 1; }
+.note { font-size: .9rem; background: var(--bg); padding: .7rem .9rem; border-radius: 12px; }

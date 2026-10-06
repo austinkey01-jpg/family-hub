@@ -177,6 +177,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json({"ok": True})
 
         if res == "events":
+            if method == "POST" and rid:
+                b = self._body()
+                db.update_event(rid, b["title"], b["start"], b.get("end") or b["start"],
+                                b.get("all_day", False), b.get("member_id"), b.get("location", ""))
+                return self._json({"id": rid})
             if method == "POST":
                 b = self._body()
                 return self._json({"id": db.add_event(b["title"], b["start"], b.get("end") or b["start"],

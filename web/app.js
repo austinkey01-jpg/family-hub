@@ -121,9 +121,18 @@ function showDetail(e) {
   $("#dWhen").textContent = s.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }) +
     (e.all_day ? " · All day" : ` · ${fmtTime(e.start)} – ${fmtTime(e.end)}`) + (e.member ? ` · ${e.member}` : "");
   $("#dWhere").textContent = e.location || "";
+  // Events made on the hub can be changed here. Events synced from another
+  // calendar are read-only (the next sync would undo any change anyway).
+  const mine = e.source === "local";
+  $("#dActions").classList.toggle("hidden", !mine);
+  $("#dSynced").classList.toggle("hidden", mine);
   const del = $("#dDelete");
-  del.classList.toggle("hidden", e.source !== "local");
-  del.onclick = async () => { await api(`events/${e.id}`, { method: "DELETE" }); close("#detail"); load(); };
+  del.classList.remove("armed"); del.textContent = "Delete";
+  del.onclick = async () => {
+    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "Tap again to delete"; return; }
+    await api(`events/${e.id}`, { method: "DELETE" }); close("#detail"); toast("Deleted"); load();
+  };
+  $("#dEdit").onclick = () => { close("#detail"); openAdd(null, e); };
   $("#detail").classList.remove("hidden");
 }
 
@@ -220,19 +229,33 @@ function renderLists() {
   }
 }
 
-// ---------------------------------------------------------------- add event
-function openAdd(day) {
+// ---------------------------------------------------------------- add / edit event
+// openAdd(day)        -> blank form for a new event on that day
+// openAdd(null, ev)   -> the same form filled in with an existing event, to edit it
+let editingId = null;
+
+function openAdd(day, ev = null) {
   const f = $("#eventForm"); f.reset();
-  f.day.value = day || S.data.today;
-  S.who = null;
+  editingId = ev ? ev.id : null;
+  $("#sheetTitle").textContent = ev ? "Edit event" : "Add to the calendar";
+  if (ev) {
+    f.title.value = ev.title;
+    f.day.value = ev.start.slice(0, 10);
+    f.all_day.checked = !!ev.all_day;
+    if (!ev.all_day) { f.start.value = ev.start.slice(11, 16); f.end.value = ev.end.slice(11, 16); }
+  } else {
+    f.day.value = day || S.data.today;
+  }
+  S.who = ev ? ev.member_id : null;
   const who = $("#whoPick"); who.innerHTML = "";
   for (const m of [{ id: null, name: "Everyone", color: NEUTRAL }, ...S.data.members]) {
-    const b = el("button", m.id === null ? "on" : "", esc(m.name)); b.type = "button";
+    const b = el("button", m.id === S.who ? "on" : "", esc(m.name)); b.type = "button";
     b.style.setProperty("--c", m.color);
     b.onclick = () => { S.who = m.id; who.querySelectorAll("button").forEach((x) => x.classList.remove("on")); b.classList.add("on"); };
     who.append(b);
   }
-  $("#quickWrap").classList.toggle("hidden", !S.data.features.ai);
+  // Quick-add only makes sense for new events.
+  $("#quickWrap").classList.toggle("hidden", !S.data.features.ai || !!ev);
   $("#quick").value = "";
   $("#sheet").classList.remove("hidden");
 }
@@ -246,11 +269,16 @@ $("#eventForm").onsubmit = async (ev) => {
   else {
     body.start = `${f.day.value}T${f.start.value}`;
     let endT = f.end.value;
-    if (!endT) { const [h, m] = f.start.value.split(":").map(Number); endT = `${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }
+    if (!endT || endT <= f.start.value) {   // no end, or an end before the start: make it 1 hour
+      const [h, m] = f.start.value.split(":").map(Number);
+      endT = `${String(Math.min(h + 1, 23)).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
     body.end = `${f.day.value}T${endT}`;
   }
-  await api("events", { method: "POST", body });
-  close("#sheet"); toast("Added to the calendar"); load();
+  try {
+    await api(editingId ? `events/${editingId}` : "events", { method: "POST", body });
+    close("#sheet"); toast(editingId ? "Saved" : "Added to the calendar"); load();
+  } catch (e) { toast(e.message); }
 };
 
 $("#quickGo").onclick = async () => {
