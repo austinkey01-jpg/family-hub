@@ -1,0 +1,11 @@
+# Your data and secrets stay on your machine
+data/
+config.json
+voice/models/
+voice/recordings/
+
+# Python leftovers
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,0 +1,15 @@
+[Unit]
+Description=FamilyHub server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__APP_DIR__
+Environment=PATH=__APP_DIR__/.venv/bin:/usr/bin:/bin
+ExecStart=__APP_DIR__/.venv/bin/python server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

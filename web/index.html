@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>FamilyHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="clock">
+      <div id="time" class="time">--:--</div>
+      <div id="date" class="date"></div>
+    </div>
+    <div id="weather" class="weather"></div>
+    <div id="family" class="family"></div>
+    <button id="gear" class="gear" aria-label="Family settings">⚙</button>
+  </header>
+
+  <section id="brief" class="brief hidden">
+    <button id="briefPlay" class="brief-play hidden" aria-label="Play">▶</button>
+    <p id="briefText"></p>
+  </section>
+
+  <main class="main">
+    <section class="calendar">
+      <div class="cal-head">
+        <button class="nav" id="prev" aria-label="Previous week">‹</button>
+        <h2 id="range"></h2>
+        <button class="nav" id="next" aria-label="Next week">›</button>
+        <button class="pill" id="todayBtn">Today</button>
+        <div class="seg">
+          <button data-view="week" class="on">Week</button>
+          <button data-view="agenda">Schedule</button>
+        </div>
+      </div>
+      <div id="week" class="week"></div>
+      <div id="agenda" class="agenda hidden"></div>
+    </section>
+
+    <aside class="side">
+      <div class="tabs">
+        <button data-tab="today" class="on">For you</button>
+        <button data-tab="chores">Chores</button>
+        <button data-tab="lists">Lists</button>
+      </div>
+      <div id="tab-today" class="tab"></div>
+      <div id="tab-chores" class="tab hidden"></div>
+      <div id="tab-lists" class="tab hidden"></div>
+    </aside>
+  </main>
+
+  <button id="fab" class="fab" aria-label="Add">＋</button>
+</div>
+
+<!-- Add sheet -->
+<div id="sheet" class="sheet hidden">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h3>Add to the calendar</h3>
+      <button class="x" data-close>✕</button>
+    </div>
+    <div id="quickWrap" class="quick hidden">
+      <input id="quick" placeholder="Try: Emma soccer Thursday 5:30 at Riverside">
+      <button id="quickGo" class="primary">Add</button>
+      <div class="or">or fill it in</div>
+    </div>
+    <form id="eventForm">
+      <input name="title" placeholder="What's happening?" required>
+      <div class="row">
+        <label>Day <input type="date" name="day" required></label>
+        <label>Start <input type="time" name="start"></label>
+        <label>End <input type="time" name="end"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="all_day"> All day</label>
+      <div id="whoPick" class="who"></div>
+      <button class="primary wide">Save</button>
+    </form>
+  </div>
+</div>
+
+<!-- Event detail -->
+<div id="detail" class="sheet hidden">
+  <div class="sheet-card small">
+    <div class="sheet-head"><h3 id="dTitle"></h3><button class="x" data-close>✕</button></div>
+    <p id="dWhen"></p><p id="dWhere" class="muted"></p>
+    <button id="dDelete" class="danger hidden">Delete event</button>
+  </div>
+</div>
+
+<!-- Family settings -->
+<div id="familySheet" class="sheet hidden">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <button id="famBack" class="x hidden" aria-label="Back">‹</button>
+      <h3 id="famTitle">Family</h3>
+      <button class="x" data-close>✕</button>
+    </div>
+
+    <!-- list of people -->
+    <div id="famList">
+      <div id="famPeople" class="fam-people"></div>
+      <button id="famAdd" class="primary wide">＋ Add someone</button>
+    </div>
+
+    <!-- add / edit one person -->
+    <form id="famForm" class="hidden">
+      <div class="fam-preview"><span id="famDot" class="fam-dot"></span></div>
+      <input name="name" placeholder="Name" maxlength="24" autocomplete="off">
+      <div class="label">Color</div>
+      <div id="famColors" class="swatches"></div>
+      <div class="label">Picture</div>
+      <div id="famEmojis" class="emojis"></div>
+      <button class="primary wide">Save</button>
+      <button type="button" id="famDelete" class="ghost-danger hidden">Remove from family</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>

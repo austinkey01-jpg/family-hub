@@ -1,0 +1,28 @@
+{
+  "family_name": "Our Family",
+  "timezone": "America/New_York",
+  "port": 8080,
+  "sync_minutes": 10,
+  "units": "imperial",
+  "location": { "lat": 40.7128, "lon": -74.0060 },
+
+  "members": [
+    { "name": "Dad",  "color": "#3B6EA8", "emoji": "🧔" },
+    { "name": "Mom",  "color": "#C2557A", "emoji": "👩" },
+    { "name": "Alex", "color": "#2E8B6A", "emoji": "🧑" },
+    { "name": "Emma", "color": "#D08A2E", "emoji": "👧" }
+  ],
+
+  "calendars": [
+    { "name": "Family (Google)", "member": null,   "url": "" },
+    { "name": "Mom (iCloud)",    "member": "Mom",  "url": "" }
+  ],
+
+  "lists": ["Groceries", "To-Do", "Meal Ideas"],
+
+  "anthropic_api_key": "",
+  "ai_model": "claude-haiku-4-5-20251001",
+
+  "voice_model": "",
+  "voice_speed": 1.0
+}
